@@ -24,7 +24,18 @@ export default function LoginPage() {
     });
 
     if (error) {
-      setError(error.message);
+      // Provide user-friendly messages for common Supabase auth errors
+      if (error.message.includes("Email not confirmed")) {
+        setError(
+          "Your email is not confirmed yet. Please check your inbox for a confirmation link, or ask your admin to confirm your account."
+        );
+      } else if (error.message.includes("Invalid login credentials")) {
+        setError(
+          "Invalid email or password. If you were invited, check your email for the invite link to set your password."
+        );
+      } else {
+        setError(error.message);
+      }
       setLoading(false);
     } else {
       window.location.href = "/";
@@ -185,11 +196,11 @@ export default function LoginPage() {
 
                   {error && (
                     <div
-                      className="px-4 py-2.5 rounded-xl text-sm"
+                      className="px-4 py-3 rounded-xl text-sm font-medium leading-relaxed"
                       style={{
-                        background: "rgba(239,68,68,0.1)",
-                        border: "1px solid rgba(239,68,68,0.2)",
-                        color: "#f87171",
+                        background: "rgba(239,68,68,0.15)",
+                        border: "1px solid rgba(239,68,68,0.3)",
+                        color: "#fca5a5",
                       }}
                     >
                       {error}
