@@ -18,7 +18,31 @@ export default async function DashboardPage() {
     .eq("id", user.id)
     .single();
 
-  if (!profile) redirect("/login");
+  if (!profile) {
+    // Profile not found — DB may not be set up yet or trigger didn't fire
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "#020617" }}>
+        <div className="text-center">
+          <div
+            className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-4"
+            style={{ background: "linear-gradient(135deg, #6366f1, #06b6d4)" }}
+          >
+            <span className="text-white text-xl font-black">R</span>
+          </div>
+          <h1 className="text-white text-xl font-bold mb-2">Setting up your account...</h1>
+          <p className="text-slate-400 text-sm mb-6">
+            Your profile is being created. Please refresh in a moment.
+          </p>
+          <a
+            href="/login"
+            className="text-indigo-400 text-sm hover:text-indigo-300 transition-colors"
+          >
+            Back to login
+          </a>
+        </div>
+      </div>
+    );
+  }
   if (profile.role === "admin") redirect("/admin/dashboard");
 
   // Get client's content plans

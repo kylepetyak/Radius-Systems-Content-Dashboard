@@ -9,7 +9,6 @@ export async function updateSession(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  // If env vars aren't configured, skip auth checks
   if (!supabaseUrl || !supabaseAnonKey) {
     return supabaseResponse;
   }
@@ -46,63 +45,66 @@ export async function updateSession(request: NextRequest) {
       pathname.startsWith(route)
     );
 
+    // Not logged in and trying to access protected route → go to login
     if (!user && !isPublicRoute) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       return NextResponse.redirect(url);
     }
 
+    // Logged in user on /login → try to redirect to dashboard
+    // But ONLY if we can confirm they have a valid profile
     if (user && pathname === "/login") {
-      const { data: profile } = await supabase
+      const { data: profile, error } = await supabase
         .from("profiles")
         .select("role")
         .eq("id", user.id)
         .single();
 
-      const url = request.nextUrl.clone();
-      if (profile?.role === "admin") {
-        url.pathname = "/admin/dashboard";
-      } else {
-        url.pathname = "/dashboard";
+      // If profile query fails (table missing, no row), stay on login
+      if (error || !profile) {
+        return supabaseResponse;
       }
+
+      const url = request.nextUrl.clone();
+      url.pathname = profile.role === "admin" ? "/admin/dashboard" : "/dashboard";
       return NextResponse.redirect(url);
     }
 
-    // Protect admin routes
+    // Protect admin routes — only redirect if we can confirm non-admin
     if (user && pathname.startsWith("/admin")) {
-      const { data: profile } = await supabase
+      const { data: profile, error } = await supabase
         .from("profiles")
         .select("role")
         .eq("id", user.id)
         .single();
 
-      if (profile?.role !== "admin") {
+      if (!error && profile && profile.role !== "admin") {
         const url = request.nextUrl.clone();
         url.pathname = "/dashboard";
         return NextResponse.redirect(url);
       }
+      // If profile query fails, let request through (page will handle it)
     }
 
     // Redirect root to appropriate dashboard
     if (user && pathname === "/") {
-      const { data: profile } = await supabase
+      const { data: profile, error } = await supabase
         .from("profiles")
         .select("role")
         .eq("id", user.id)
         .single();
 
-      const url = request.nextUrl.clone();
-      if (profile?.role === "admin") {
-        url.pathname = "/admin/dashboard";
-      } else {
-        url.pathname = "/dashboard";
+      if (!error && profile) {
+        const url = request.nextUrl.clone();
+        url.pathname = profile.role === "admin" ? "/admin/dashboard" : "/dashboard";
+        return NextResponse.redirect(url);
       }
-      return NextResponse.redirect(url);
+      // If no profile, let them through to the page (which redirects to /dashboard)
     }
 
     return supabaseResponse;
   } catch (error) {
-    // If middleware fails (e.g., DB not set up yet), let the request through
     console.error("Middleware error:", error);
     return supabaseResponse;
   }
