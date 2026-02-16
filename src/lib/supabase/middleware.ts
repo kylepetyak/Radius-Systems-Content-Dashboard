@@ -6,10 +6,16 @@ export async function updateSession(request: NextRequest) {
     request,
   });
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  // If env vars aren't configured, skip auth checks
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return supabaseResponse;
+  }
+
+  try {
+    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
       cookies: {
         getAll() {
           return request.cookies.getAll();
@@ -26,74 +32,78 @@ export async function updateSession(request: NextRequest) {
           );
         },
       },
-    }
-  );
+    });
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  const pathname = request.nextUrl.pathname;
+    const pathname = request.nextUrl.pathname;
 
-  // Public routes that don't require auth
-  const publicRoutes = ["/login", "/api/auth/callback"];
-  const isPublicRoute = publicRoutes.some((route) =>
-    pathname.startsWith(route)
-  );
+    // Public routes that don't require auth
+    const publicRoutes = ["/login", "/api/auth/callback"];
+    const isPublicRoute = publicRoutes.some((route) =>
+      pathname.startsWith(route)
+    );
 
-  if (!user && !isPublicRoute) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
-  }
-
-  if (user && pathname === "/login") {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    const url = request.nextUrl.clone();
-    if (profile?.role === "admin") {
-      url.pathname = "/admin/dashboard";
-    } else {
-      url.pathname = "/dashboard";
-    }
-    return NextResponse.redirect(url);
-  }
-
-  // Protect admin routes
-  if (user && pathname.startsWith("/admin")) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    if (profile?.role !== "admin") {
+    if (!user && !isPublicRoute) {
       const url = request.nextUrl.clone();
-      url.pathname = "/dashboard";
+      url.pathname = "/login";
       return NextResponse.redirect(url);
     }
-  }
 
-  // Redirect root to appropriate dashboard
-  if (user && pathname === "/") {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
+    if (user && pathname === "/login") {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
 
-    const url = request.nextUrl.clone();
-    if (profile?.role === "admin") {
-      url.pathname = "/admin/dashboard";
-    } else {
-      url.pathname = "/dashboard";
+      const url = request.nextUrl.clone();
+      if (profile?.role === "admin") {
+        url.pathname = "/admin/dashboard";
+      } else {
+        url.pathname = "/dashboard";
+      }
+      return NextResponse.redirect(url);
     }
-    return NextResponse.redirect(url);
-  }
 
-  return supabaseResponse;
+    // Protect admin routes
+    if (user && pathname.startsWith("/admin")) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      if (profile?.role !== "admin") {
+        const url = request.nextUrl.clone();
+        url.pathname = "/dashboard";
+        return NextResponse.redirect(url);
+      }
+    }
+
+    // Redirect root to appropriate dashboard
+    if (user && pathname === "/") {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      const url = request.nextUrl.clone();
+      if (profile?.role === "admin") {
+        url.pathname = "/admin/dashboard";
+      } else {
+        url.pathname = "/dashboard";
+      }
+      return NextResponse.redirect(url);
+    }
+
+    return supabaseResponse;
+  } catch (error) {
+    // If middleware fails (e.g., DB not set up yet), let the request through
+    console.error("Middleware error:", error);
+    return supabaseResponse;
+  }
 }
