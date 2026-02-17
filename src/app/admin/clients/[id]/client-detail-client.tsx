@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/navbar";
 import { ProgressRing } from "@/components/progress-ring";
-import { ArrowLeftIcon, PlusIcon, ChevronRightIcon } from "@/components/icons";
+import { ArrowLeftIcon, PlusIcon, ChevronRightIcon, MailIcon } from "@/components/icons";
 import type { Profile, ContentPlan, ContentPiece } from "@/lib/types/database";
 
 interface ClientDetailClientProps {
@@ -18,9 +18,34 @@ export function ClientDetailClient({ client, plans, pieces }: ClientDetailClient
   const [planTitle, setPlanTitle] = useState("");
   const [planMonth, setPlanMonth] = useState("");
   const [loading, setLoading] = useState(false);
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteMessage, setInviteMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const router = useRouter();
 
   const published = pieces.filter((p) => p.status === "published").length;
+
+  const handleSendInvite = async () => {
+    setInviteLoading(true);
+    setInviteMessage(null);
+
+    try {
+      const res = await fetch(`/api/clients/${client.id}/invite`, {
+        method: "POST",
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setInviteMessage({ type: "error", text: data.error || "Failed to send invite" });
+      } else {
+        setInviteMessage({ type: "success", text: "Invite sent! The client will receive an email to set up their account." });
+      }
+    } catch {
+      setInviteMessage({ type: "error", text: "Something went wrong" });
+    }
+
+    setInviteLoading(false);
+  };
 
   const handleCreatePlan = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,7 +105,32 @@ export function ClientDetailClient({ client, plans, pieces }: ClientDetailClient
             </h1>
             <p className="text-slate-400 text-sm">{client.email}</p>
           </div>
+          <button
+            onClick={handleSendInvite}
+            disabled={inviteLoading}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all disabled:opacity-50 shrink-0"
+            style={{
+              background: "transparent",
+              border: "1px solid rgba(16,185,129,0.3)",
+              color: "#34d399",
+            }}
+          >
+            <MailIcon /> {inviteLoading ? "Sending..." : "Send Invite"}
+          </button>
         </div>
+
+        {inviteMessage && (
+          <div
+            className="px-4 py-2.5 rounded-xl text-sm mb-6"
+            style={{
+              background: inviteMessage.type === "success" ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)",
+              border: `1px solid ${inviteMessage.type === "success" ? "rgba(16,185,129,0.2)" : "rgba(239,68,68,0.2)"}`,
+              color: inviteMessage.type === "success" ? "#34d399" : "#f87171",
+            }}
+          >
+            {inviteMessage.text}
+          </div>
+        )}
 
         {/* Overview */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">

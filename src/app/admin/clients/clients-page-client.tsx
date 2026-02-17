@@ -3,11 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/navbar";
-import { ArrowLeftIcon, PlusIcon, ChevronRightIcon, MailIcon } from "@/components/icons";
+import { ArrowLeftIcon, PlusIcon, ChevronRightIcon } from "@/components/icons";
 import type { Profile } from "@/lib/types/database";
 
 export function ClientsPageClient({ clients }: { clients: Profile[] }) {
-  const [showInvite, setShowInvite] = useState(false);
+  const [showForm, setShowForm] = useState(false);
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
   const [companyName, setCompanyName] = useState("");
@@ -15,7 +15,7 @@ export function ClientsPageClient({ clients }: { clients: Profile[] }) {
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const router = useRouter();
 
-  const handleInvite = async (e: React.FormEvent) => {
+  const handleAdd = async (e: React.FormEvent, sendInvite: boolean) => {
     e.preventDefault();
     setLoading(true);
     setMessage(null);
@@ -24,15 +24,25 @@ export function ClientsPageClient({ clients }: { clients: Profile[] }) {
       const res = await fetch("/api/clients", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, full_name: fullName, company_name: companyName }),
+        body: JSON.stringify({
+          email,
+          full_name: fullName,
+          company_name: companyName,
+          send_invite: sendInvite,
+        }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        setMessage({ type: "error", text: data.error || "Failed to invite client" });
+        setMessage({ type: "error", text: data.error || "Failed to add client" });
       } else {
-        setMessage({ type: "success", text: "Client invited successfully!" });
+        setMessage({
+          type: "success",
+          text: sendInvite
+            ? "Client added and invite sent!"
+            : "Client added! You can build their content plan and invite them later.",
+        });
         setEmail("");
         setFullName("");
         setCompanyName("");
@@ -62,24 +72,25 @@ export function ClientsPageClient({ clients }: { clients: Profile[] }) {
             <p className="text-slate-400 text-sm">Manage and invite clients</p>
           </div>
           <button
-            onClick={() => setShowInvite(!showInvite)}
+            onClick={() => setShowForm(!showForm)}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white transition-all"
             style={{ background: "linear-gradient(135deg, #6366f1, #4f46e5)" }}
           >
-            <PlusIcon /> Invite
+            <PlusIcon /> Add Client
           </button>
         </div>
 
-        {/* Invite form */}
-        {showInvite && (
+        {/* Add client form */}
+        {showForm && (
           <div
             className="rounded-2xl p-6 mb-6"
             style={{ background: "#0f172a", border: "1px solid rgba(99,102,241,0.3)" }}
           >
-            <h2 className="text-white font-semibold mb-4 flex items-center gap-2">
-              <MailIcon /> Invite New Client
-            </h2>
-            <form onSubmit={handleInvite} className="space-y-4">
+            <h2 className="text-white font-semibold mb-1">Add New Client</h2>
+            <p className="text-slate-500 text-xs mb-4">
+              Add a client to build their content plan first, then invite them when ready.
+            </p>
+            <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
               <div>
                 <label className="block text-slate-400 text-xs font-medium mb-1.5">
                   Email *
@@ -136,14 +147,30 @@ export function ClientsPageClient({ clients }: { clients: Profile[] }) {
                 </div>
               )}
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="px-6 py-2.5 rounded-xl text-white text-sm font-semibold transition-all disabled:opacity-50"
-                style={{ background: "linear-gradient(135deg, #6366f1, #4f46e5)" }}
-              >
-                {loading ? "Sending..." : "Send Invite"}
-              </button>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={(e) => handleAdd(e, false)}
+                  disabled={loading || !email}
+                  className="px-6 py-2.5 rounded-xl text-white text-sm font-semibold transition-all disabled:opacity-50"
+                  style={{ background: "linear-gradient(135deg, #6366f1, #4f46e5)" }}
+                >
+                  {loading ? "Adding..." : "Add Client"}
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => handleAdd(e, true)}
+                  disabled={loading || !email}
+                  className="px-6 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
+                  style={{
+                    background: "transparent",
+                    border: "1px solid rgba(99,102,241,0.3)",
+                    color: "#a5b4fc",
+                  }}
+                >
+                  {loading ? "Adding..." : "Add & Send Invite"}
+                </button>
+              </div>
             </form>
           </div>
         )}
@@ -157,7 +184,7 @@ export function ClientsPageClient({ clients }: { clients: Profile[] }) {
             >
               <p className="text-slate-500 text-sm mb-2">No clients yet</p>
               <p className="text-slate-600 text-xs">
-                Click &quot;Invite&quot; to add your first client.
+                Click &quot;Add Client&quot; to get started.
               </p>
             </div>
           ) : (

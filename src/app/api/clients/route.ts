@@ -56,34 +56,59 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { email, full_name, company_name } = body;
+  const { email, full_name, company_name, send_invite } = body;
 
   if (!email) {
     return NextResponse.json({ error: "Email is required" }, { status: 400 });
   }
 
-  // Use admin client to invite user
   const adminClient = createAdminClient();
 
-  const { data: inviteData, error: inviteError } =
-    await adminClient.auth.admin.inviteUserByEmail(email, {
-      data: {
-        full_name: full_name || "",
-        role: "client",
-      },
-    });
+  if (send_invite) {
+    // Create user AND send invite email
+    const { data: inviteData, error: inviteError } =
+      await adminClient.auth.admin.inviteUserByEmail(email, {
+        data: {
+          full_name: full_name || "",
+          role: "client",
+        },
+      });
 
-  if (inviteError) {
-    return NextResponse.json({ error: inviteError.message }, { status: 500 });
+    if (inviteError) {
+      return NextResponse.json({ error: inviteError.message }, { status: 500 });
+    }
+
+    if (company_name && inviteData.user) {
+      await adminClient
+        .from("profiles")
+        .update({ company_name })
+        .eq("id", inviteData.user.id);
+    }
+
+    return NextResponse.json({ success: true, invited: true, user: inviteData.user });
+  } else {
+    // Create user silently (no invite email sent)
+    const { data: userData, error: createError } =
+      await adminClient.auth.admin.createUser({
+        email,
+        email_confirm: true,
+        user_metadata: {
+          full_name: full_name || "",
+          role: "client",
+        },
+      });
+
+    if (createError) {
+      return NextResponse.json({ error: createError.message }, { status: 500 });
+    }
+
+    if (company_name && userData.user) {
+      await adminClient
+        .from("profiles")
+        .update({ company_name })
+        .eq("id", userData.user.id);
+    }
+
+    return NextResponse.json({ success: true, invited: false, user: userData.user });
   }
-
-  // Update profile with company name if provided
-  if (company_name && inviteData.user) {
-    await adminClient
-      .from("profiles")
-      .update({ company_name })
-      .eq("id", inviteData.user.id);
-  }
-
-  return NextResponse.json({ success: true, user: inviteData.user });
 }
