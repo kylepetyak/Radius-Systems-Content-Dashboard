@@ -70,6 +70,15 @@ export function PlanEditorClient({ plan, client, pieces }: PlanEditorClientProps
     router.refresh();
   };
 
+  const handleDeletePlan = async () => {
+    if (!confirm(`Delete "${plan.title}" and all its content pieces? This cannot be undone.`)) return;
+
+    const res = await fetch(`/api/content-plans?id=${plan.id}`, { method: "DELETE" });
+    if (res.ok) {
+      router.push(`/admin/clients/${client.id}`);
+    }
+  };
+
   return (
     <div className="min-h-screen" style={{ background: "#020617" }}>
       <Navbar isAdmin />
@@ -88,6 +97,13 @@ export function PlanEditorClient({ plan, client, pieces }: PlanEditorClientProps
               {client.company_name || client.email} &middot; {plan.month || "No month"}
             </p>
           </div>
+          <button
+            onClick={handleDeletePlan}
+            className="p-2 rounded-xl text-slate-600 hover:text-red-400 hover:bg-red-400/10 transition-colors shrink-0"
+            title="Delete plan"
+          >
+            <TrashIcon />
+          </button>
         </div>
 
         <div className="flex items-center justify-between mb-6 mt-6">
