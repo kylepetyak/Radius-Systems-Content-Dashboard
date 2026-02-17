@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/navbar";
 import { StatusBadge } from "@/components/status-badge";
 import { ArrowLeftIcon, PlusIcon, ChevronRightIcon, TrashIcon } from "@/components/icons";
+import { BulkImportModal } from "@/components/bulk-import-modal";
 import type { Profile, ContentPlan, ContentPiece } from "@/lib/types/database";
 
 interface PlanEditorClientProps {
@@ -22,6 +23,7 @@ export function PlanEditorClient({ plan, client, pieces }: PlanEditorClientProps
   const [duration, setDuration] = useState("");
   const [hook, setHook] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showBulkImport, setShowBulkImport] = useState(false);
   const router = useRouter();
 
   const handleCreatePiece = async (e: React.FormEvent) => {
@@ -90,13 +92,26 @@ export function PlanEditorClient({ plan, client, pieces }: PlanEditorClientProps
 
         <div className="flex items-center justify-between mb-6 mt-6">
           <p className="text-slate-400 text-sm">{pieces.length} content pieces</p>
-          <button
-            onClick={() => setShowNewPiece(!showNewPiece)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white"
-            style={{ background: "linear-gradient(135deg, #6366f1, #4f46e5)" }}
-          >
-            <PlusIcon /> Add Piece
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowBulkImport(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all"
+              style={{
+                background: "transparent",
+                border: "1px solid rgba(99,102,241,0.3)",
+                color: "#a5b4fc",
+              }}
+            >
+              Bulk Import
+            </button>
+            <button
+              onClick={() => setShowNewPiece(!showNewPiece)}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white"
+              style={{ background: "linear-gradient(135deg, #6366f1, #4f46e5)" }}
+            >
+              <PlusIcon /> Add Piece
+            </button>
+          </div>
         </div>
 
         {showNewPiece && (
@@ -240,6 +255,17 @@ export function PlanEditorClient({ plan, client, pieces }: PlanEditorClientProps
           )}
         </div>
       </div>
+
+      {showBulkImport && (
+        <BulkImportModal
+          planId={plan.id}
+          onClose={() => setShowBulkImport(false)}
+          onSuccess={() => {
+            setShowBulkImport(false);
+            router.refresh();
+          }}
+        />
+      )}
     </div>
   );
 }
