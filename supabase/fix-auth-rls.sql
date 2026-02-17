@@ -1,5 +1,5 @@
 -- ============================================
--- Content Studio — Fix Script
+-- Content Studio — Fix Script (idempotent, safe to re-run)
 -- Run this in Supabase SQL Editor to fix auth & RLS issues
 -- ============================================
 
@@ -13,26 +13,42 @@ RETURNS BOOLEAN AS $$
   );
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
 
--- 2. Drop all existing policies (they have self-referencing issues)
+-- 2. Drop ALL existing policies (both old names from schema.sql and new names from this script)
+--    This makes the script safe to re-run multiple times
+
+-- Profiles
 DROP POLICY IF EXISTS "Users can view own profile" ON profiles;
 DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
 DROP POLICY IF EXISTS "Admins can insert profiles" ON profiles;
+DROP POLICY IF EXISTS "Anyone can insert own profile" ON profiles;
+
+-- Content Plans
 DROP POLICY IF EXISTS "Clients see own plans" ON content_plans;
 DROP POLICY IF EXISTS "Admins can insert plans" ON content_plans;
 DROP POLICY IF EXISTS "Admins can update plans" ON content_plans;
 DROP POLICY IF EXISTS "Admins can delete plans" ON content_plans;
+
+-- Content Pieces
 DROP POLICY IF EXISTS "Users see relevant pieces" ON content_pieces;
 DROP POLICY IF EXISTS "Admins can insert pieces" ON content_pieces;
 DROP POLICY IF EXISTS "Clients update own piece status" ON content_pieces;
+DROP POLICY IF EXISTS "Users update pieces" ON content_pieces;
 DROP POLICY IF EXISTS "Admins can delete pieces" ON content_pieces;
+
+-- Shot List Items
 DROP POLICY IF EXISTS "Users see relevant shots" ON shot_list_items;
 DROP POLICY IF EXISTS "Admins can insert shots" ON shot_list_items;
 DROP POLICY IF EXISTS "Clients check off shots" ON shot_list_items;
+DROP POLICY IF EXISTS "Users update shots" ON shot_list_items;
 DROP POLICY IF EXISTS "Admins can delete shots" ON shot_list_items;
+
+-- Pro Tips
 DROP POLICY IF EXISTS "Users see relevant tips" ON pro_tips;
 DROP POLICY IF EXISTS "Admins can insert tips" ON pro_tips;
 DROP POLICY IF EXISTS "Admins can update tips" ON pro_tips;
 DROP POLICY IF EXISTS "Admins can delete tips" ON pro_tips;
+
+-- Uploads
 DROP POLICY IF EXISTS "Users see relevant uploads" ON uploads;
 DROP POLICY IF EXISTS "Users can upload to own pieces" ON uploads;
 
@@ -173,5 +189,5 @@ FROM auth.users
 WHERE id NOT IN (SELECT id FROM public.profiles)
 ON CONFLICT (id) DO NOTHING;
 
--- 6. Make YOUR account an admin (update the email below)
+-- 6. Make YOUR account an admin (uncomment and update the email below)
 -- UPDATE profiles SET role = 'admin' WHERE email = 'YOUR_EMAIL_HERE';
