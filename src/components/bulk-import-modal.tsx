@@ -8,6 +8,9 @@ interface ParsedPiece {
   content_type: string;
   duration: string;
   hook: string;
+  script: string;
+  shot_list: string;
+  pro_tips: string;
 }
 
 interface BulkImportModalProps {
@@ -16,7 +19,7 @@ interface BulkImportModalProps {
   onSuccess: () => void;
 }
 
-const EXPECTED_HEADERS = ["title", "platform", "content_type", "duration", "hook"];
+const EXPECTED_HEADERS = ["title", "platform", "content_type", "duration", "hook", "script", "shot_list", "pro_tips"];
 
 function parseCSVLine(line: string): string[] {
   const result: string[] = [];
@@ -65,6 +68,9 @@ function parseSpreadsheetData(text: string): ParsedPiece[] {
     else if (h.includes("type") || h.includes("format") || h.includes("content_type")) headerMap[i] = "content_type";
     else if (h.includes("duration") || h.includes("length")) headerMap[i] = "duration";
     else if (h.includes("hook") || h.includes("opening")) headerMap[i] = "hook";
+    else if (h.includes("script") || h.includes("body") || h.includes("copy")) headerMap[i] = "script";
+    else if (h.includes("shot") || h.includes("shot_list")) headerMap[i] = "shot_list";
+    else if (h.includes("pro_tip") || h.includes("tip") || h.includes("pro tip")) headerMap[i] = "pro_tips";
     else if (EXPECTED_HEADERS.includes(h)) headerMap[i] = h;
   });
 
@@ -76,6 +82,9 @@ function parseSpreadsheetData(text: string): ParsedPiece[] {
       content_type: "",
       duration: "",
       hook: "",
+      script: "",
+      shot_list: "",
+      pro_tips: "",
     };
 
     Object.entries(headerMap).forEach(([idx, field]) => {
@@ -100,6 +109,9 @@ function parseQuickAdd(text: string): ParsedPiece[] {
       content_type: "",
       duration: "",
       hook: line,
+      script: "",
+      shot_list: "",
+      pro_tips: "",
     }));
 }
 
@@ -234,7 +246,7 @@ export function BulkImportModal({ planId, onClose, onSuccess }: BulkImportModalP
               <>
                 <p className="text-slate-400 text-xs mb-3">
                   Paste rows from Google Sheets or Excel. First row should be headers:
-                  <span className="text-slate-300 ml-1">Title, Platform, Content Type, Duration, Hook</span>
+                  <span className="text-slate-300 ml-1">Title, Platform, Content Type, Duration, Hook, Script, Shot List, Pro Tips</span>
                 </p>
                 <textarea
                   value={textInput}
@@ -307,6 +319,11 @@ export function BulkImportModal({ planId, onClose, onSuccess }: BulkImportModalP
                     {piece.hook && piece.hook !== piece.title && (
                       <p className="text-slate-500 text-xs mt-1 italic truncate">&quot;{piece.hook}&quot;</p>
                     )}
+                    <div className="flex gap-2 mt-1">
+                      {piece.script && <span className="text-emerald-500 text-xs">Script</span>}
+                      {piece.shot_list && <span className="text-amber-500 text-xs">Shot List</span>}
+                      {piece.pro_tips && <span className="text-purple-400 text-xs">Pro Tips</span>}
+                    </div>
                   </div>
                   <button
                     onClick={() => removePiece(i)}

@@ -62,5 +62,52 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  // Insert shot_list_items and pro_tips for each piece
+  const shotRows: { piece_id: string; shot_number: number; shot_desc: string; sort_order: number }[] = [];
+  const tipRows: { piece_id: string; tip_text: string; sort_order: number }[] = [];
+
+  data.forEach((createdPiece: { id: string }, index: number) => {
+    const original = pieces[index];
+
+    // Parse shot list — each line becomes a shot item
+    if (original.shot_list) {
+      const shots = original.shot_list
+        .split(/\n|[;|]/)
+        .map((s: string) => s.trim())
+        .filter((s: string) => s);
+      shots.forEach((desc: string, i: number) => {
+        shotRows.push({
+          piece_id: createdPiece.id,
+          shot_number: i + 1,
+          shot_desc: desc,
+          sort_order: i,
+        });
+      });
+    }
+
+    // Parse pro tips — each line becomes a tip
+    if (original.pro_tips) {
+      const tips = original.pro_tips
+        .split(/\n|[;|]/)
+        .map((s: string) => s.trim())
+        .filter((s: string) => s);
+      tips.forEach((text: string, i: number) => {
+        tipRows.push({
+          piece_id: createdPiece.id,
+          tip_text: text,
+          sort_order: i,
+        });
+      });
+    }
+  });
+
+  if (shotRows.length > 0) {
+    await supabase.from("shot_list_items").insert(shotRows);
+  }
+
+  if (tipRows.length > 0) {
+    await supabase.from("pro_tips").insert(tipRows);
+  }
+
   return NextResponse.json({ success: true, count: data.length, pieces: data });
 }
