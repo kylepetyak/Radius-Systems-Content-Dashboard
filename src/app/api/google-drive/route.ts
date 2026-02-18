@@ -36,7 +36,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { piece_id, client_name, content_title, date } = body;
+  const { piece_id, client_name, content_title, client_email, date } = body;
 
   if (!piece_id || !client_name || !content_title) {
     return NextResponse.json(
@@ -51,7 +51,8 @@ export async function POST(request: Request) {
     const { folderUrl } = await createProjectFolder(
       client_name,
       content_title,
-      folderDate
+      folderDate,
+      client_email
     );
 
     // Save the folder URL back to the content piece

@@ -40,7 +40,8 @@ function getDriveClient() {
 export async function createProjectFolder(
   clientName: string,
   contentTitle: string,
-  date: string // YYYY-MM-DD
+  date: string, // YYYY-MM-DD
+  clientEmail?: string // client's email — folder will be shared with them
 ): Promise<{ folderId: string; folderUrl: string }> {
   const drive = getDriveClient();
   const parentId = process.env.GOOGLE_DRIVE_PARENT_FOLDER_ID;
@@ -64,19 +65,45 @@ export async function createProjectFolder(
   const folderId = folder.data.id!;
   const folderUrl = folder.data.webViewLink!;
 
-  // Create subfolders in parallel
+  // Create subfolders + set permissions in parallel
   const subfolders = ["Raw Footage", "Audio", "Photos"];
-  await Promise.all(
-    subfolders.map((name) =>
-      drive.files.create({
-        requestBody: {
-          name,
-          mimeType: "application/vnd.google-apps.folder",
-          parents: [folderId],
-        },
-      })
-    )
+  const tasks: Promise<unknown>[] = subfolders.map((name) =>
+    drive.files.create({
+      requestBody: {
+        name,
+        mimeType: "application/vnd.google-apps.folder",
+        parents: [folderId],
+      },
+    })
   );
+
+  // Make folder accessible via link (anyone with link can upload)
+  tasks.push(
+    drive.permissions.create({
+      fileId: folderId,
+      requestBody: {
+        role: "writer",
+        type: "anyone",
+      },
+    })
+  );
+
+  // Also share directly with the client's email so it appears in their Drive
+  if (clientEmail) {
+    tasks.push(
+      drive.permissions.create({
+        fileId: folderId,
+        requestBody: {
+          role: "writer",
+          type: "user",
+          emailAddress: clientEmail,
+        },
+        sendNotificationEmail: false,
+      })
+    );
+  }
+
+  await Promise.all(tasks);
 
   return { folderId, folderUrl };
 }

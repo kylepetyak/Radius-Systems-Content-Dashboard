@@ -122,7 +122,7 @@ export async function POST(request: Request) {
       if (planData) {
         const { data: client } = await supabase
           .from("profiles")
-          .select("company_name, full_name")
+          .select("company_name, full_name, email")
           .eq("id", planData.client_id)
           .single();
 
@@ -135,7 +135,8 @@ export async function POST(request: Request) {
               const { folderUrl } = await createProjectFolder(
                 clientName,
                 piece.title,
-                folderDate
+                folderDate,
+                client?.email
               );
               await supabase
                 .from("content_pieces")

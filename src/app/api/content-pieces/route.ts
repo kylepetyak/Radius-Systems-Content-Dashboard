@@ -88,7 +88,7 @@ export async function POST(request: Request) {
       if (plan) {
         const { data: client } = await supabase
           .from("profiles")
-          .select("company_name, full_name")
+          .select("company_name, full_name, email")
           .eq("id", plan.client_id)
           .single();
 
@@ -98,7 +98,8 @@ export async function POST(request: Request) {
         const { folderUrl } = await createProjectFolder(
           clientName,
           body.title,
-          folderDate
+          folderDate,
+          client?.email
         );
 
         // Save the folder URL to the piece
