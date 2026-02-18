@@ -97,6 +97,7 @@ export type Database = {
           hook: string;
           script: string | null;
           reference_url: string | null;
+          drive_folder_url: string | null;
           sort_order: number;
           created_at: string;
           updated_at: string;
@@ -113,6 +114,7 @@ export type Database = {
           hook: string;
           script?: string | null;
           reference_url?: string | null;
+          drive_folder_url?: string | null;
           sort_order?: number;
           created_at?: string;
           updated_at?: string;
@@ -129,6 +131,7 @@ export type Database = {
           hook?: string;
           script?: string | null;
           reference_url?: string | null;
+          drive_folder_url?: string | null;
           sort_order?: number;
           created_at?: string;
           updated_at?: string;

@@ -9,6 +9,8 @@ import {
   CameraIcon,
   SparkleIcon,
   CheckIcon,
+  FolderIcon,
+  ExternalLinkIcon,
 } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
 import type { ContentPiece, ShotListItem, ProTip } from "@/lib/types/database";
@@ -95,6 +97,36 @@ export function ContentDetailClient({
             &ldquo;{piece.hook}&rdquo;
           </p>
         </div>
+
+        {/* Google Drive Folder Link */}
+        {piece.drive_folder_url && (
+          <a
+            href={piece.drive_folder_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 p-4 rounded-2xl transition-all hover:opacity-90"
+            style={{
+              background: "linear-gradient(135deg, #1a4731, #14532d)",
+              border: "1px solid #166534",
+            }}
+          >
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-emerald-400"
+              style={{ background: "rgba(34,197,94,0.15)" }}
+            >
+              <FolderIcon size={20} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-emerald-300 text-sm font-semibold">Google Drive Folder</p>
+              <p className="text-emerald-500 text-xs truncate">
+                Upload footage, audio &amp; photos here
+              </p>
+            </div>
+            <span className="text-emerald-400">
+              <ExternalLinkIcon size={18} />
+            </span>
+          </a>
+        )}
 
         {/* Status buttons */}
         <div>

@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS content_pieces (
   hook          TEXT NOT NULL,
   script        TEXT,
   reference_url TEXT,
+  drive_folder_url TEXT,
   sort_order    INTEGER DEFAULT 0,
   created_at    TIMESTAMPTZ DEFAULT now(),
   updated_at    TIMESTAMPTZ DEFAULT now()

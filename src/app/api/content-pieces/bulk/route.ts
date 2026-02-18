@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createProjectFolder, isDriveConfigured } from "@/lib/google-drive";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -107,6 +108,48 @@ export async function POST(request: Request) {
 
   if (tipRows.length > 0) {
     await supabase.from("pro_tips").insert(tipRows);
+  }
+
+  // Auto-create Google Drive folders if configured
+  if (isDriveConfigured()) {
+    try {
+      const { data: planData } = await supabase
+        .from("content_plans")
+        .select("client_id")
+        .eq("id", plan_id)
+        .single();
+
+      if (planData) {
+        const { data: client } = await supabase
+          .from("profiles")
+          .select("company_name, full_name")
+          .eq("id", planData.client_id)
+          .single();
+
+        const clientName = client?.company_name || client?.full_name || "Client";
+
+        await Promise.all(
+          data.map(async (piece: { id: string; title: string; due_date?: string }) => {
+            try {
+              const folderDate = piece.due_date || new Date().toISOString().split("T")[0];
+              const { folderUrl } = await createProjectFolder(
+                clientName,
+                piece.title,
+                folderDate
+              );
+              await supabase
+                .from("content_pieces")
+                .update({ drive_folder_url: folderUrl })
+                .eq("id", piece.id);
+            } catch {
+              // Skip individual failures
+            }
+          })
+        );
+      }
+    } catch {
+      // Don't fail bulk import if Drive folder creation fails
+    }
   }
 
   return NextResponse.json({ success: true, count: data.length, pieces: data });

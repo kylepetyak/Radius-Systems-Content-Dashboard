@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
-import { LogOutIcon } from "./icons";
+import { LogOutIcon, SettingsIcon } from "./icons";
 
 interface NavbarProps {
   companyName?: string;
@@ -54,6 +54,15 @@ export function Navbar({ companyName, planMonth, initials, isAdmin }: NavbarProp
             >
               {initials}
             </div>
+          )}
+          {isAdmin && (
+            <button
+              onClick={() => router.push("/admin/settings")}
+              className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              title="Settings"
+            >
+              <SettingsIcon size={18} />
+            </button>
           )}
           <button
             onClick={handleLogout}

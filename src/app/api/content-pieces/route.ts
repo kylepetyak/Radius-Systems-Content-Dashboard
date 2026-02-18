@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createProjectFolder, isDriveConfigured } from "@/lib/google-drive";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
@@ -72,6 +73,46 @@ export async function POST(request: Request) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  // Auto-create Google Drive folder if configured
+  if (isDriveConfigured()) {
+    try {
+      // Look up the client name from the plan
+      const { data: plan } = await supabase
+        .from("content_plans")
+        .select("client_id")
+        .eq("id", body.plan_id)
+        .single();
+
+      if (plan) {
+        const { data: client } = await supabase
+          .from("profiles")
+          .select("company_name, full_name")
+          .eq("id", plan.client_id)
+          .single();
+
+        const clientName = client?.company_name || client?.full_name || "Client";
+        const folderDate = body.due_date || new Date().toISOString().split("T")[0];
+
+        const { folderUrl } = await createProjectFolder(
+          clientName,
+          body.title,
+          folderDate
+        );
+
+        // Save the folder URL to the piece
+        await supabase
+          .from("content_pieces")
+          .update({ drive_folder_url: folderUrl })
+          .eq("id", data.id);
+
+        data.drive_folder_url = folderUrl;
+      }
+    } catch (driveErr) {
+      // Don't fail the piece creation if Drive folder fails
+      console.error("Google Drive folder creation failed:", driveErr);
+    }
   }
 
   return NextResponse.json(data);
