@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { StatusBadge, statusConfig, type ContentStatus } from "@/components/status-badge";
+import { FilmingMode } from "@/components/filming-mode";
 import {
   ArrowLeftIcon,
   MicIcon,
@@ -11,6 +12,8 @@ import {
   CheckIcon,
   FolderIcon,
   ExternalLinkIcon,
+  EyeIcon,
+  ZapIcon,
 } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
 import type { ContentPiece, ShotListItem, ProTip } from "@/lib/types/database";
@@ -22,14 +25,19 @@ interface ContentDetailClientProps {
   isAdmin: boolean;
 }
 
+// Client-allowed statuses (no "published" — that's the agency's call)
+const clientStatuses: ContentStatus[] = ["to_film", "filming", "in_review"];
+
 export function ContentDetailClient({
   piece,
   shotItems,
   proTips,
+  isAdmin,
 }: ContentDetailClientProps) {
   const [activeTab, setActiveTab] = useState<"script" | "shots" | "tips">("script");
   const [currentStatus, setCurrentStatus] = useState<ContentStatus>(piece.status);
   const [shots, setShots] = useState(shotItems);
+  const [showFilmingMode, setShowFilmingMode] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
@@ -54,11 +62,65 @@ export function ContentDetailClient({
       .eq("id", shotId);
   };
 
+  const handleFilmingShotToggle = useCallback((shotId: string, completed: boolean) => {
+    setShots((prev) =>
+      prev.map((s) => (s.id === shotId ? { ...s, is_completed: !completed } : s))
+    );
+  }, []);
+
+  const handleAllShotsComplete = useCallback(async () => {
+    // Auto-advance status to in_review when all shots are done
+    if (currentStatus === "to_film" || currentStatus === "filming") {
+      setCurrentStatus("in_review");
+      await supabase
+        .from("content_pieces")
+        .update({ status: "in_review" })
+        .eq("id", piece.id);
+      router.refresh();
+    }
+  }, [currentStatus, piece.id, supabase, router]);
+
+  // Auto-advance: if user starts completing shots and status is to_film, move to filming
+  const handleShotToggleWithAutoAdvance = async (shotId: string, currentCompleted: boolean) => {
+    await toggleShot(shotId, currentCompleted);
+
+    if (!currentCompleted && currentStatus === "to_film") {
+      // User completed a shot, auto-advance from to_film to filming
+      setCurrentStatus("filming");
+      await supabase
+        .from("content_pieces")
+        .update({ status: "filming" })
+        .eq("id", piece.id);
+      router.refresh();
+    }
+  };
+
+  const availableStatuses = isAdmin
+    ? (Object.keys(statusConfig) as ContentStatus[])
+    : clientStatuses;
+
   const tabs = [
     { id: "script" as const, label: "Script", icon: <MicIcon size={16} /> },
     { id: "shots" as const, label: "Shot List", icon: <CameraIcon size={16} /> },
     { id: "tips" as const, label: "Pro Tips", icon: <SparkleIcon size={16} /> },
   ];
+
+  // Filming mode overlay
+  if (showFilmingMode) {
+    return (
+      <FilmingMode
+        piece={piece}
+        shotItems={shots}
+        proTips={proTips}
+        onClose={() => {
+          setShowFilmingMode(false);
+          router.refresh();
+        }}
+        onShotToggle={handleFilmingShotToggle}
+        onAllShotsComplete={handleAllShotsComplete}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen" style={{ background: "#020617" }}>
@@ -85,6 +147,39 @@ export function ContentDetailClient({
       </div>
 
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+        {/* Start Filming Mode CTA */}
+        {(currentStatus === "to_film" || currentStatus === "filming") && (
+          <button
+            onClick={() => setShowFilmingMode(true)}
+            className="w-full rounded-2xl p-5 text-left transition-all active:scale-[0.99] group"
+            style={{
+              background: "linear-gradient(135deg, #312e81, #0c4a6e)",
+              border: "1px solid rgba(99,102,241,0.3)",
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="flex items-center gap-2 text-cyan-400 text-xs font-bold uppercase tracking-wider mb-2">
+                  <ZapIcon size={14} /> Filming Mode
+                </span>
+                <p className="text-white text-base font-semibold mb-1">
+                  Ready to film? Start here.
+                </p>
+                <p className="text-slate-400 text-sm">
+                  Step-by-step guide with teleprompter.
+                  {shots.length > 0 && ` ${shots.length} shots to walk through.`}
+                </p>
+              </div>
+              <div
+                className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform"
+                style={{ background: "rgba(99,102,241,0.2)" }}
+              >
+                <CameraIcon size={24} />
+              </div>
+            </div>
+          </button>
+        )}
+
         {/* Hook card */}
         <div
           className="rounded-2xl p-5"
@@ -97,6 +192,36 @@ export function ContentDetailClient({
             &ldquo;{piece.hook}&rdquo;
           </p>
         </div>
+
+        {/* Reference Video/Link */}
+        {piece.reference_url && (
+          <a
+            href={piece.reference_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 p-4 rounded-2xl transition-all hover:opacity-90"
+            style={{
+              background: "linear-gradient(135deg, #1e1b4b, #312e81)",
+              border: "1px solid rgba(139,92,246,0.3)",
+            }}
+          >
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-violet-400"
+              style={{ background: "rgba(139,92,246,0.15)" }}
+            >
+              <EyeIcon size={20} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-violet-300 text-sm font-semibold">Reference Example</p>
+              <p className="text-violet-400 text-xs truncate" style={{ opacity: 0.7 }}>
+                See what we&apos;re going for — tap to watch
+              </p>
+            </div>
+            <span className="text-violet-400">
+              <ExternalLinkIcon size={18} />
+            </span>
+          </a>
+        )}
 
         {/* Google Drive Folder Link */}
         {piece.drive_folder_url && (
@@ -117,9 +242,9 @@ export function ContentDetailClient({
               <FolderIcon size={20} />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-emerald-300 text-sm font-semibold">Google Drive Folder</p>
+              <p className="text-emerald-300 text-sm font-semibold">Upload Footage</p>
               <p className="text-emerald-500 text-xs truncate">
-                Upload footage, audio &amp; photos here
+                Drop your filmed footage into Google Drive
               </p>
             </div>
             <span className="text-emerald-400">
@@ -134,8 +259,9 @@ export function ContentDetailClient({
             Update Status
           </p>
           <div className="flex gap-2 flex-wrap">
-            {(Object.entries(statusConfig) as [ContentStatus, typeof statusConfig.to_film][]).map(
-              ([key, val]) => (
+            {availableStatuses.map((key) => {
+              const val = statusConfig[key];
+              return (
                 <button
                   key={key}
                   onClick={() => handleStatusChange(key)}
@@ -149,7 +275,18 @@ export function ContentDetailClient({
                 >
                   {val.label}
                 </button>
-              )
+              );
+            })}
+            {currentStatus === "published" && !isAdmin && (
+              <span
+                className="px-4 py-2 rounded-xl text-sm font-bold inline-flex items-center gap-1.5"
+                style={{
+                  background: statusConfig.published.color,
+                  color: "#020617",
+                }}
+              >
+                <CheckIcon /> Published
+              </span>
             )}
           </div>
         </div>
@@ -199,9 +336,9 @@ export function ContentDetailClient({
                 border: "1px solid rgba(245,158,11,0.2)",
               }}
             >
-              <span className="text-xs shrink-0 mt-0.5">💡</span>
+              <span className="text-xs shrink-0 mt-0.5">&#128161;</span>
               <p className="text-amber-400 text-xs">
-                Don&apos;t memorize word-for-word. Hit the key points in your own voice.
+                Don&apos;t memorize word-for-word. Hit the key points in your own voice — or use Filming Mode for a teleprompter.
               </p>
             </div>
           </div>
@@ -222,11 +359,20 @@ export function ContentDetailClient({
                   className="h-full rounded-full transition-all duration-500"
                   style={{
                     width: `${shots.length > 0 ? (completedShots / shots.length) * 100 : 0}%`,
-                    background: "#6366f1",
+                    background: completedShots === shots.length && shots.length > 0 ? "#10b981" : "#6366f1",
                   }}
                 />
               </div>
             </div>
+            {completedShots === shots.length && shots.length > 0 && (
+              <div
+                className="flex items-center gap-2 px-4 py-3 rounded-xl"
+                style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)" }}
+              >
+                <span className="text-emerald-400"><CheckIcon /></span>
+                <p className="text-emerald-400 text-sm font-medium">All shots done! Time to upload your footage.</p>
+              </div>
+            )}
             {shots.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-slate-500 text-sm">No shots added yet.</p>
@@ -235,7 +381,7 @@ export function ContentDetailClient({
               shots.map((shot) => (
                 <button
                   key={shot.id}
-                  onClick={() => toggleShot(shot.id, shot.is_completed)}
+                  onClick={() => handleShotToggleWithAutoAdvance(shot.id, shot.is_completed)}
                   className="w-full text-left rounded-2xl p-4 transition-all"
                   style={{
                     background: shot.is_completed ? "rgba(16,185,129,0.06)" : "#0f172a",
